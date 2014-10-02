@@ -1,0 +1,63 @@
+#! /usr/bin/python
+
+import sys
+import os
+import urllib2
+from bs4 import BeautifulSoup
+import html5lib
+import datetime
+
+
+def get_content(url):
+    req = urllib2.Request(url, headers={ 'User-Agent': 'Mozilla/5.0' })
+    try:
+        handler = urllib2.urlopen(req)
+    except urllib2.URLError, e:
+        return(None, 0)
+    http_status_code = handler.getcode()
+    return (handler, http_status_code)
+
+def clean_raw_price(raw_price, url):
+
+    #google result is clean
+    if 'google' in url:
+        return raw_price
+    #'213.4900\n        \n             USD'
+    #'229.18 9.58\uff084.36%\uff09'
+    elif 'bloomberg' in url or 'ifeng' in url:
+        return raw_price.split()[0]
+    else:
+        return 0
+        
+def main(argv=None):
+
+    urls = { 'https://www.google.com/finance?q=vips':['span', 'pr'],
+             'http://www.bloomberg.com/quote/VIPS:US':['span', ' price'],
+             'http://finance.ifeng.com/app/hq/usstock/VIPS.K/':['div', 'currentInfo']
+            }
+
+    for url in urls.keys():
+        (handler, http_status_code) = get_content(url)
+
+        if (http_status_code == 200):
+            soup = BeautifulSoup(handler)
+            span_class = soup.find(urls[url][0], {'class': urls[url][1]})
+            raw_price = span_class.get_text().strip()
+            price = float(clean_raw_price(raw_price, url))
+            break
+        else:
+            price = 0.0
+            continue
+
+    if not price:
+        exit("cannot fetch price from web")
+
+    b_ratio = 0.1
+    total = 19.5 * (1 + b_ratio) + price * 0.1
+
+    data_file = '/home/jhan/dev/scripts/data/records'
+    with open(data_file, 'a') as output:
+        output.write(str(datetime.date.today()) + "\t" + str(total) +'\n')
+
+if __name__ == "__main__":
+    main()

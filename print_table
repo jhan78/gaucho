@@ -1,0 +1,100 @@
+#! /usr/bin/python
+
+import sys
+import operator
+import os
+import urllib2
+from bs4 import BeautifulSoup
+import html5lib
+import datetime
+import HTMLParser
+
+
+def get_content(url):
+    req = urllib2.Request(url, headers={ 'User-Agent': 'Mozilla/5.0' })
+    try:
+        handler = urllib2.urlopen(req)
+    except urllib2.URLError, e:
+        return(None, 0)
+    http_status_code = handler.getcode()
+    return (handler, http_status_code)
+
+def main(argv=None):
+
+    #define url and table class name
+    url = 'http://www.harker.org/page.cfm?p=887'
+    table_class = 'hkr-table'
+   
+    (handler, http_status_code) = get_content(url)
+    placement = {}
+    total = 0
+    
+    if (http_status_code == 200):
+        soup = BeautifulSoup(handler)
+        table_tag=soup.table
+
+        rows = table_tag.findAll('tr')
+        for row in rows:
+            cols = row.findAll('td')
+            i = 0
+            while i < len(cols):
+                school = cols[i].find(text=True).encode('utf-8')
+                num = cols[i+1].find(text=True).encode('utf-8')
+                if (school[0].isalpha() and num[0].isdigit() and int(num)):
+                    school = "".join(school.split())
+                    placement[school] = int(num)
+                    total += int(num)
+                i += 2    
+
+    sorted_placement = sorted(placement.iteritems(), key=operator.itemgetter(1))
+    print sorted_placement
+    print "total = %d" % total
+    
+    """
+    base_url = 'http://colleges.usnews.rankingsandreviews.com/best-colleges/rankings/national-universities/data/page+'
+    i = 1
+    count = 1
+    while i <= 2:
+        url = base_url + str(i)
+        (handler, http_status_code) = get_content(url)
+        if http_status_code == 200:
+            soup = BeautifulSoup(handler)
+            table_tag=soup.table
+
+            rows = table_tag.findAll('tr')
+            for row in rows:
+                cols = row.findAll('td')
+                for col in cols:
+                    school_names = col.findAll('a', {'class':'school-name'})
+                    for school_name in school_names:
+                        if school_name:
+                            
+                            print "%d. %s" % (count, school_name.text.encode('utf-8',"None"))
+                            count += 1
+                    #print school_name.string().strip()
+        i += 1
+    """
+    filename = "/home/jhan/dev/scripts/ivy"
+    schools = []
+    with open(filename, 'r') as infile:
+        for line in infile:
+            line = line.rstrip()
+            schools.append("".join(line.split()[1:]))
+
+    top25schools_num = 0
+    top50schools_num = 0
+    
+    for key, value in placement.iteritems():
+        if key in schools:
+            top50schools_num += value
+            if schools.index(key) <= 24:
+                top25schools_num += value
+
+    print "total=%d, top25=%d, percentage=%f, top50=%d, percentage=%f"%(total, 
+                                                                        top25schools_num, 
+                                                                        float(top25schools_num)/float(total),
+                                                                        top50schools_num, 
+                                                                        float(top50schools_num)/float(total))
+
+if __name__ == "__main__":
+    main()

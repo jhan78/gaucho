@@ -1,0 +1,37 @@
+#! /usr/local/bin/python
+
+import sys
+import os
+import csv
+from tempfile import NamedTemporaryFile
+import shutil
+
+def main(argv=None):
+    schema = []
+    
+    input_csv = "./data.csv"
+    tempfile = NamedTemporaryFile(delete=False)
+
+    with open(input_csv, 'rb') as csvfile, tempfile:
+        csvreader = csv.reader(csvfile, delimiter=',', quotechar='"')
+        csvwriter = csv.writer(tempfile, delimiter=',', quotechar='"')
+        count = 1
+        for row in csvreader:
+            if count == 1:
+                schema = row
+                count += 1
+                csvwriter.writerow(row)
+                continue
+            i = 0
+            for i in range(len(schema)):
+                if schema[i] == 'p_create_at_dt' or schema[i] == 'change_at':
+                    data_time = row[i]
+                    tmp = data_time.split()
+                    utc_time = tmp[0] + 'T' + tmp[1] + 'Z'
+                    row[i] = utc_time
+            csvwriter.writerow(row)
+            count += 1
+    shutil.move(tempfile.name, input_csv)                   
+
+if __name__ == "__main__":
+    main()
